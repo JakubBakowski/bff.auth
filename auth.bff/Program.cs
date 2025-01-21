@@ -33,6 +33,8 @@ builder.Services.AddAuthentication(options =>
     options.Cookie.HttpOnly = true;
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
     options.Cookie.SameSite = SameSiteMode.Lax;
+    // options.DataProtectionProvider = null; // Disable cookie encryption
+    options.TicketDataFormat = new PlainTicketSerializer(); // Add custom ticket serializer
 
     // Add expiration time for the cookie
     options.ExpireTimeSpan = TimeSpan.FromHours(1);
