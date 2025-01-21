@@ -2,6 +2,9 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using System.Security.Claims;
+using auth.bff.Infrastructure;
+using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,6 +15,9 @@ builder.Services.AddDistributedMemoryCache();
 // {
 //     options.Configuration = builder.Configuration.GetConnectionString("Redis");
 // });
+
+builder.Services.AddSingleton<ITicketStore, DistributedSessionStore>();
+builder.Services.AddSingleton<TokenManager>();
 
 builder.Services.AddSession();
 
@@ -32,9 +38,7 @@ builder.Services.AddAuthentication(options =>
     options.ExpireTimeSpan = TimeSpan.FromHours(1);
     // Sliding expiration means the timeout will be reset each time the user makes a request
     options.SlidingExpiration = true;
-    // Configure session storage
-    // options.SessionStore = new DistributedSessionStore
-
+    options.SessionStore = builder.Services.BuildServiceProvider().GetRequiredService<ITicketStore>();
 })
 .AddOpenIdConnect(options =>
 {
@@ -42,8 +46,28 @@ builder.Services.AddAuthentication(options =>
     options.ClientId = builder.Configuration["Authentication:ClientId"];
     options.ClientSecret = builder.Configuration["Authentication:ClientSecret"];
     options.ResponseType = "code";
-    options.SaveTokens = true;
+    options.SaveTokens = false;
 
+     options.Events = new OpenIdConnectEvents
+    {
+        OnTokenValidated = async context =>
+        {
+            var tokenManager = context.HttpContext.RequestServices.GetRequiredService<TokenManager>();
+            var userId = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            
+            if (userId != null)
+            {
+                var tokens = new Dictionary<string, string>
+                {
+                    { "access_token", context.TokenEndpointResponse?.AccessToken ?? "" },
+                    { "refresh_token", context.TokenEndpointResponse?.RefreshToken ?? "" },
+                    { "id_token", context.TokenEndpointResponse?.IdToken ?? "" }
+                };
+                
+                await tokenManager.StoreTokens(userId, tokens);
+            }
+        }
+    };
     // options.UseTokenLifetime = true;  // Use token lifetime for cookie expiration
     
     // Add required scopes
@@ -62,6 +86,7 @@ builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
 var app = builder.Build();
+
 
 app.UseSession();
 app.UseAuthentication();
@@ -99,11 +124,20 @@ app.MapReverseProxy(proxyPipeline =>
                 return;
             }
 
-            // Forward the access token to the backend API
-            var token = await context.GetTokenAsync("access_token");
-            if (!string.IsNullOrEmpty(token))
+            var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userId != null)
             {
-                context.Request.Headers.Authorization = $"Bearer {token}";
+                var tokenManager = context.RequestServices.GetRequiredService<TokenManager>();
+                var token = await tokenManager.GetToken(userId, "access_token");
+                
+                if (!string.IsNullOrEmpty(token))
+                {
+                    context.Request.Headers.Authorization = $"Bearer {token}";
+                }
+                else
+                {
+                    Console.WriteLine("Warning: No access token available to forward to API");
+                }
             }
         }
         await next();
