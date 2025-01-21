@@ -12,14 +12,8 @@ builder.Services.AddDistributedMemoryCache();
 // {
 //     options.Configuration = builder.Configuration.GetConnectionString("Redis");
 // });
-// Add session support
-builder.Services.AddSession(options =>
-{
-    options.Cookie.HttpOnly = true;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-    options.Cookie.SameSite = SameSiteMode.Lax;
-    options.IdleTimeout = TimeSpan.FromHours(1);
-});
+
+builder.Services.AddSession();
 
 // Configure authentication
 builder.Services.AddAuthentication(options =>
@@ -29,9 +23,18 @@ builder.Services.AddAuthentication(options =>
 })
 .AddCookie(options =>
 {
+    options.Cookie.Name = "auth.bff";
     options.Cookie.HttpOnly = true;
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
     options.Cookie.SameSite = SameSiteMode.Lax;
+
+    // Add expiration time for the cookie
+    options.ExpireTimeSpan = TimeSpan.FromHours(1);
+    // Sliding expiration means the timeout will be reset each time the user makes a request
+    options.SlidingExpiration = true;
+    // Configure session storage
+    // options.SessionStore = new DistributedSessionStore
+
 })
 .AddOpenIdConnect(options =>
 {
@@ -40,7 +43,8 @@ builder.Services.AddAuthentication(options =>
     options.ClientSecret = builder.Configuration["Authentication:ClientSecret"];
     options.ResponseType = "code";
     options.SaveTokens = true;
-    options.GetClaimsFromUserInfoEndpoint = true;
+
+    // options.UseTokenLifetime = true;  // Use token lifetime for cookie expiration
     
     // Add required scopes
     options.Scope.Clear();
@@ -51,9 +55,6 @@ builder.Services.AddAuthentication(options =>
     options.Scope.Add("notify.api");
     options.Scope.Add("admin.api.lite");
     
-    // Map additional claims
-    options.MapInboundClaims = true;
-    options.GetClaimsFromUserInfoEndpoint = true;
 });
 
 // Configure YARP reverse proxy
@@ -83,27 +84,6 @@ app.MapGet("/bff/logout", async (HttpContext context) =>
     context.Session.Clear();
     return Results.Redirect("/");
 });
-
-// User info endpoint
-app.MapGet("/bff/user", (HttpContext context) =>
-{
-    if (context.User.Identity?.IsAuthenticated != true)
-    {
-        return Results.Unauthorized();
-    }
-
-    var userInfo = new
-    {
-        Name = context.User.FindFirst(ClaimTypes.Name)?.Value,
-        Email = context.User.FindFirst(ClaimTypes.Email)?.Value,
-        Claims = context.User.Claims.Select(c => new { c.Type, c.Value })
-    };
-
-    return Results.Ok(userInfo);
-}).RequireAuthorization();
-
-// Configure static files middleware before the reverse proxy
-app.UseStaticFiles();
 
 // Configure the reverse proxy with authentication requirement for API routes
 app.MapReverseProxy(proxyPipeline =>
