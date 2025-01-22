@@ -13,11 +13,7 @@ public class TokenManager(IDistributedCache cache)
         {
             var key = $"{TokenKeyPrefix}{userId}";
             var tokenBytes = JsonSerializer.SerializeToUtf8Bytes(tokens);
-            await cache.SetAsync(key, tokenBytes, new DistributedCacheEntryOptions
-            {
-                SlidingExpiration = TimeSpan.FromHours(1),
-                AbsoluteExpirationRelativeToNow=  TimeSpan.FromDays(1)
-            });
+            await cache.SetAsync(key, tokenBytes, CacheOptions.DefaultOptions);
         }
         catch (Exception ex)
         {

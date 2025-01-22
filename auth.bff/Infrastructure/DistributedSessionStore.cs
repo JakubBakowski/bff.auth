@@ -34,16 +34,10 @@ public class DistributedSessionStore(IDistributedCache cache) : ITicketStore
     {
         if (ticket == null) throw new ArgumentNullException(nameof(ticket));
 
-        var options = new DistributedCacheEntryOptions
-        {
-            SlidingExpiration = TimeSpan.FromHours(1),
-            AbsoluteExpirationRelativeToNow=  TimeSpan.FromDays(1)
-        };
-
         try
         {
             byte[] val = _ticketSerializer.Serialize(ticket);
-            return _cache.SetAsync(key, val, options);
+            return _cache.SetAsync(key, val, CacheOptions.DefaultOptions);
         }
         catch (Exception ex)
         {
