@@ -9,12 +9,14 @@ using Microsoft.Extensions.Options;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add in-memory cache for session storage
-builder.Services.AddDistributedMemoryCache();
+// builder.Services.AddDistributedMemoryCache();
 // Add Redis distributed cache
-// builder.Services.AddStackExchangeRedisCache(options =>
-// {
-//     options.Configuration = builder.Configuration.GetConnectionString("Redis");
-// });
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = builder.Configuration.GetConnectionString("Redis");
+    options.InstanceName = "Notify.Auth.Bff";
+
+});
 
 builder.Services.AddSingleton<ITicketStore, DistributedSessionStore>();
 builder.Services.AddSingleton<TokenManager>();

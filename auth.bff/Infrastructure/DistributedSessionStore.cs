@@ -34,23 +34,35 @@ public class DistributedSessionStore(IDistributedCache cache) : ITicketStore
     {
         if (ticket == null) throw new ArgumentNullException(nameof(ticket));
 
-        var options = new DistributedCacheEntryOptions();
-        var expiresUtc = ticket.Properties.ExpiresUtc;
-        if (expiresUtc.HasValue)
+        var options = new DistributedCacheEntryOptions
         {
-            options.SetAbsoluteExpiration(expiresUtc.Value);
-        }
+            SlidingExpiration = TimeSpan.FromHours(1),
+            AbsoluteExpirationRelativeToNow=  TimeSpan.FromDays(1)
+        };
 
-        byte[] val = _ticketSerializer.Serialize(ticket);
-        return _cache.SetAsync(key, val, options);
+        try
+        {
+            byte[] val = _ticketSerializer.Serialize(ticket);
+            return _cache.SetAsync(key, val, options);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException("Failed to serialize or store authentication ticket", ex);
+        }
     }
 
     public async Task<AuthenticationTicket?> RetrieveAsync(string key)
     {
-        var bytes = await _cache.GetAsync(key);
-        if (bytes == null) return null;
-        var ticket = _ticketSerializer.Deserialize(bytes);
-        return ticket;
+        try
+        {
+            var bytes = await _cache.GetAsync(key);
+            if (bytes == null) return null;
+            return _ticketSerializer.Deserialize(bytes);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException("Failed to retrieve or deserialize authentication ticket", ex);
+        }
     }
 
     public Task RemoveAsync(string key)
