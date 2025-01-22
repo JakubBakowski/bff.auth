@@ -19,6 +19,11 @@ builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSingleton<ITicketStore, DistributedSessionStore>();
 builder.Services.AddSingleton<TokenManager>();
 
+builder.Services.AddOptions<CookieAuthenticationOptions>(CookieAuthenticationDefaults.AuthenticationScheme)
+    .Configure<ITicketStore>((options, store) => {
+        options.SessionStore = store;
+    });
+
 builder.Services.AddSession();
 
 // Configure authentication
@@ -40,7 +45,6 @@ builder.Services.AddAuthentication(options =>
     options.ExpireTimeSpan = TimeSpan.FromHours(1);
     // Sliding expiration means the timeout will be reset each time the user makes a request
     options.SlidingExpiration = true;
-    options.SessionStore = builder.Services.BuildServiceProvider().GetRequiredService<ITicketStore>();
 })
 .AddOpenIdConnect(options =>
 {

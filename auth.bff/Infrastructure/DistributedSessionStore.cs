@@ -13,28 +13,20 @@ public class DistributedSessionStore(IDistributedCache cache) : ITicketStore
 
     public async Task<string> StoreAsync(AuthenticationTicket ticket)
     {
-        Console.WriteLine("Starting StoreAsync for authentication ticket");
-        
         var userId = ticket.Principal?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-        Console.WriteLine($"Found user ID from claims: {userId ?? "null"}");
-        
         string key;
         if (string.IsNullOrEmpty(userId))
         {
             var guid = Guid.NewGuid();
-            Console.WriteLine($"Warning: User ID not found in authentication ticket. Using generated GUID {guid} instead.");
             key = $"{KeyPrefix}{guid}";
         }
         else
         {
             key = $"{KeyPrefix}{userId}";
-            Console.WriteLine($"Using user ID to generate key: {key}");
         }
 
-        Console.WriteLine($"Calling RenewAsync with key: {key}");
         await RenewAsync(key, ticket);
         
-        Console.WriteLine($"Successfully stored authentication ticket with key: {key}");
         return key;
     }
 
@@ -58,8 +50,7 @@ public class DistributedSessionStore(IDistributedCache cache) : ITicketStore
         var bytes = await _cache.GetAsync(key);
         if (bytes == null) return null;
         var ticket = _ticketSerializer.Deserialize(bytes);
-
-        return _ticketSerializer.Deserialize(bytes);
+        return ticket;
     }
 
     public Task RemoveAsync(string key)
