@@ -38,6 +38,20 @@ public class TokenManager(IDistributedCache cache)
         }
     }
 
+    public async Task RemoveTokens(string userId)
+    {
+        try
+        {
+            var key = $"{TokenKeyPrefix}{userId}";
+            await cache.RemoveAsync(key);
+        }
+        catch (Exception ex)
+        {
+            // Log the error and rethrow - you might want to use proper logging here
+            throw new InvalidOperationException("Failed to remove tokens from cache", ex);
+        }
+    }
+
     public async Task<string?> GetToken(string userId, string tokenName)
     {
         var tokens = await GetTokens(userId);

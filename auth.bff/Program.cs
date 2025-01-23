@@ -5,6 +5,8 @@ using System.Security.Claims;
 using auth.bff.Infrastructure;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Options;
+using System.IdentityModel.Tokens.Jwt;
+using System.Threading;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -47,6 +49,13 @@ builder.Services.AddAuthentication(options =>
     options.ExpireTimeSpan = TimeSpan.FromHours(1);
     // Sliding expiration means the timeout will be reset each time the user makes a request
     options.SlidingExpiration = true;
+    options.Events = new CookieAuthenticationEvents
+    {
+        OnValidatePrincipal = async context =>
+        {
+            await TokenRefresher.RefreshTokenIfNeeded(context, builder.Configuration);
+        }
+    };
 })
 .AddOpenIdConnect(options =>
 {
@@ -54,6 +63,7 @@ builder.Services.AddAuthentication(options =>
     options.ClientId = builder.Configuration["Authentication:ClientId"];
     options.ClientSecret = builder.Configuration["Authentication:ClientSecret"];
     options.ResponseType = "code";
+    options.ResponseMode = "query";
     options.SaveTokens = false;
 
      options.Events = new OpenIdConnectEvents
@@ -76,7 +86,7 @@ builder.Services.AddAuthentication(options =>
             }
         }
     };
-    // options.UseTokenLifetime = true;  // Use token lifetime for cookie expiration
+   
     
     // Add required scopes
     options.Scope.Clear();
