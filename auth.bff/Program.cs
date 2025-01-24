@@ -32,7 +32,7 @@ builder.Services
             keyVaultOptions.TenantId,
             keyVaultOptions.ClientId,
             keyVaultOptions.ClientSecret))
-    .SetDefaultKeyLifetime(TimeSpan.FromDays(90));
+    .DisableAutomaticKeyGeneration();
 
 builder.Services.AddHttpContextAccessor();
 
