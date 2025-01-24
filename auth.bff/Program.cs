@@ -28,7 +28,6 @@ builder.Services.AddOptions<CookieAuthenticationOptions>(CookieAuthenticationDef
         options.SessionStore = store;
     });
 
-builder.Services.AddSession();
 
 // Configure authentication
 builder.Services.AddAuthentication(options =>
@@ -79,7 +78,7 @@ builder.Services.AddAuthentication(options =>
                 {
                     { "access_token", context.TokenEndpointResponse?.AccessToken ?? "" },
                     { "refresh_token", context.TokenEndpointResponse?.RefreshToken ?? "" },
-                    { "id_token", context.TokenEndpointResponse?.IdToken ?? "" }
+                    { "id_token", context.TokenEndpointResponse?.IdToken ?? "" } //TODO is it important?
                 };
                 
                 await tokenManager.StoreTokens(userId, tokens);
@@ -106,7 +105,6 @@ builder.Services.AddReverseProxy()
 var app = builder.Build();
 
 
-app.UseSession();
 app.UseAuthentication();
 app.UseAuthorization();
 
